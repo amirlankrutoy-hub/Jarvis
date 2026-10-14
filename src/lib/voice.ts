@@ -78,7 +78,7 @@ const WAKE_DEBOUNCE = 1500
  * indication why. Better a rare false wake than a name that does not answer.
  */
 const WAKE =
-  /\b(?:hey|hi|ok|okay|yo)?\s*(?:jarvis|jarvys|jervis|jarvis's|travis|jarviss|java's|jarv)\b(?!'s)/i
+  /(?<![\p{L}'])(?:(?:hey|hi|ok|okay|yo|эй|хей|окей|ок|привет|слушай)[\s,]*)?(?:jarvis|jarvys|jervis|travis|jarviss|java's|jarv|джарвис|джарвиз|джервис|жарвис|джарви|джаврис)(?![\p{L}'])/iu
 
 /** Everything after the wake phrase, which is usually the actual command. */
 function afterWake(text: string): string {
@@ -123,7 +123,7 @@ function afterWake(text: string): string {
  * last word of a real request.
  */
 const CONTINUES =
-  /\b(and|or|but|so|because|since|if|when|while|that|which|who|whose|to|of|in|on|at|by|for|with|from|about|into|onto|over|under|between|through|the|a|an|my|your|his|her|its|our|their|is|are|was|were|be|been|do|does|did|have|has|had|can|could|would|should|will|shall|might|must|like|than|then|as|very|really|just|some|any|all|both|either|neither)$/i
+  /(?<![\p{L}])(and|or|but|so|because|since|if|when|while|that|which|who|whose|to|of|in|on|at|by|for|with|from|about|into|onto|over|under|between|through|the|a|an|my|your|his|her|its|our|their|is|are|was|were|be|been|do|does|did|have|has|had|can|could|would|should|will|shall|might|must|like|than|then|as|very|really|just|some|any|all|both|either|neither|и|или|но|а|что|чтобы|потому|если|когда|пока|который|которая|которое|которые|в|во|на|с|со|к|ко|по|о|об|от|до|для|из|за|под|над|про|у|при|без|через|между|мой|моя|мое|моё|мои|твой|твоя|твои|наш|наша|ваш|ваша|этот|эта|эти|как|чем|тоже|также|очень|просто|какой|какая|какие|бы|же|не)$/iu
 
 /** Trailing punctuation a transcriber emits mid-thought. */
 const TRAILS = /[,;:–—-]$/
@@ -257,7 +257,8 @@ function makeAssembler(h: {
 const norm = (s: string) =>
   s
     .toLowerCase()
-    .replace(/[^a-z0-9' ]+/g, ' ')
+    .replace(/ё/g, 'е')
+    .replace(/[^\p{L}\p{N}' ]+/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim()
 
@@ -267,7 +268,7 @@ const norm = (s: string) =>
  * would be the single most infuriating failure this file could have.
  */
 const OVERRIDE =
-  /\b(stop|wait|jarvis|cancel|enough|quiet|hold on|shut up|never ?mind|forget it|no)\b/i
+  /(?<![\p{L}])(stop|wait|jarvis|cancel|enough|quiet|hold on|shut up|never ?mind|forget it|no|стоп|хватит|довольно|подожди|погоди|отмена|отмени|тихо|замолчи|молчи|джарвис|нет|забудь|не надо)(?![\p{L}])/iu
 
 /**
  * Words too common to be evidence of anything.
@@ -284,7 +285,11 @@ const STOP = new Set(
     'our their what which who how why when where do does did can could would ' +
     'should will shall not no yes if then than as about into over under out up ' +
     'down one two three first second third now here there just very really got ' +
-    'get have has had say said tell me okay ok well right').split(' '),
+    'get have has had say said tell me okay ok well right ' +
+    'и или но а что это как в на с к по о от до для из за у я ты он она мы вы ' +
+    'они мне меня тебя его ее их мой твой наш ваш не да нет ну вот же ли бы так ' +
+    'там тут здесь сейчас уже еще очень просто какой какая какие кто где когда ' +
+    'почему зачем можно скажи покажи один два три первый второй третий').split(' '),
 )
 
 /**
@@ -760,7 +765,7 @@ function startBrowserVoice(h: VoiceHandlers): Voice {
     rec = new Ctor()
     rec.continuous = true
     rec.interimResults = true
-    rec.lang = 'en-GB'
+    rec.lang = 'ru-RU'
     rec.onstart = () => {
       running = true
       diag.running = true

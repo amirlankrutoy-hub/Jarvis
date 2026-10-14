@@ -144,7 +144,7 @@ export function speakingNow(): string {
 
 /** Sentence end, allowing a closing quote or bracket — curly ones included,
  *  since models emit typographic punctuation far more often than ASCII. */
-const SENTENCE_END = /([.!?]["'')\]”’]?\s)|(\n\n)/
+const SENTENCE_END = /([.!?…]["'')\]”’»]?\s)|(\n\n)/
 
 /** Full stops that are not sentence ends. Cutting on these puts an audible
  *  gap inside "Mr. Stark" and reads as a stutter. */
@@ -165,56 +165,47 @@ const MAX_UNSPOKEN = 220
 const VOICE_PREF_KEY = 'jarvis.voice'
 
 /**
- * Rank installed voices by how close they are to the character: a British
- * male, low and level, not a novelty voice.
+ * Rank installed Russian voices by how close they are to the character: a
+ * male voice, low and level.
  *
- * The big win on macOS is the Enhanced/Premium variant of Daniel. The stock
- * "Daniel" is a compact voice from a decade ago and sounds it; the Enhanced
- * download is free (System Settings → Accessibility → Spoken Content → System
- * Voice → Manage Voices) and once installed it appears here automatically.
+ * On Windows the best free option is Edge's "Microsoft Dmitry Online
+ * (Natural)" — a neural male voice that Edge exposes to speechSynthesis with
+ * no setup. Chrome only gets the local SAPI voices ("Microsoft Pavel" if the
+ * Russian speech pack is installed, otherwise the female "Irina") and its own
+ * female "Google русский".
  */
 function score(v: SpeechSynthesisVoice): number {
   const n = v.name.toLowerCase()
-  let s = 0
+  let s = 40
 
-  // The macOS British male, and the closest thing to the character available
-  // without leaving the machine.
-  if (n.startsWith('daniel')) s += 100
-  else if (n.includes('google uk english male')) s += 85
-  else if (/\b(oliver|arthur|jamie|malcolm)\b/.test(n)) s += 80
-  // Newer macOS en-GB male voices — casual, but serviceable.
-  else if (/\b(reed|rocko|eddy)\b/.test(n)) s += 40
+  if (n.includes('dmitry')) s += 100
+  else if (n.includes('pavel')) s += 80
+  else if (/(yuri|юрий|maxim|максим|artem|артем|артём)/.test(n)) s += 70
 
-  // Higher-quality variants of whatever matched above.
+  // Neural cloud voices sound far better than the compact local ones.
+  if (n.includes('natural') || n.includes('online')) s += 30
   if (n.includes('premium')) s += 30
   else if (n.includes('enhanced')) s += 20
 
-  if (/en[-_]gb/i.test(v.lang)) s += 25
-  else if (/^en/i.test(v.lang)) s += 5
+  if (/ru[-_]ru/i.test(v.lang)) s += 10
 
-  // Voices that clearly aren't a butler.
-  if (/grandma|grandpa|bubbles|jester|bells|boing|whisper|zarvox|superstar|trinoids|wobble|bahh|organ|cellos|bad news|good news/.test(n)) {
-    s -= 200
-  }
-  // Female-presenting names across the English sets.
-  if (/\b(flo|sandy|shelley|kate|serena|fiona|moira|karen|tessa|samantha|zoe|allison|ava|susan)\b/.test(n)) {
-    s -= 60
+  // Female-presenting names across the Russian sets. Still usable — a Russian
+  // voice of the wrong gender beats an English voice reading Cyrillic.
+  if (/(irina|svetlana|dariya|daria|milena|katya|katerina|ekaterina|alena|alyona|anna)/.test(n)) {
+    s -= 20
   }
 
   return s
 }
 
-/** Only voices that scored on a name match, not merely on being English —
- *  otherwise the picker cycles through a dozen US novelty voices. */
-const USABLE = 40
+const isRussian = (v: SpeechSynthesisVoice) => /^ru/i.test(v.lang)
 
 /** Best-first list of usable voices — also what the voice picker cycles. */
 export function candidateVoices(): SpeechSynthesisVoice[] {
   return speechSynthesis
     .getVoices()
-    .filter((v) => /^en/i.test(v.lang))
+    .filter(isRussian)
     .map((v) => ({ v, s: score(v) }))
-    .filter((x) => x.s >= USABLE)
     .sort((a, b) => b.s - a.s)
     .map((x) => x.v)
 }
@@ -227,16 +218,19 @@ function pickVoice(): SpeechSynthesisVoice | null {
   if (!all.length) return null // not loaded yet — try again next utterance
 
   // Honour an explicit choice made with the voice picker. A saved name that no
-  // longer resolves is dropped rather than left to resurrect itself silently
-  // if that voice is ever reinstalled.
+  // longer resolves — or a non-Russian voice saved before the switch to
+  // Russian — is dropped rather than left to read Cyrillic with an English
+  // accent.
   const saved = localStorage.getItem(VOICE_PREF_KEY)
   if (saved) {
-    const hit = all.find((v) => v.name === saved)
+    const hit = all.find((v) => v.name === saved && isRussian(v))
     if (hit) return (cachedVoice = hit)
     localStorage.removeItem(VOICE_PREF_KEY)
   }
 
-  cachedVoice = candidateVoices()[0] ?? all.find((v) => /^en/i.test(v.lang)) ?? null
+  // No Russian voice installed: leave it to the browser, which picks one from
+  // the utterance's lang.
+  cachedVoice = candidateVoices()[0] ?? null
   return cachedVoice
 }
 
@@ -477,7 +471,7 @@ export function createSpeaker(): Speaker {
       const u = new SpeechSynthesisUtterance(text)
       const voice = pickVoice()
       if (voice) u.voice = voice
-      u.lang = voice?.lang ?? 'en-GB'
+      u.lang = voice?.lang ?? 'ru-RU'
       // Deliberate, and deliberately invariant — the character's pace does not
       // change with stakes, and that steadiness is most of the effect. This
       // lands around 130 wpm, below the median for film dialogue.
@@ -766,6 +760,7 @@ async function fetchCloudAudio(text: string): Promise<string | null> {
           body: JSON.stringify({
             text,
             model_id: 'eleven_flash_v2_5',
+            language_code: 'ru',
             voice_settings: {
               stability: 0.4,
               similarity_boost: 0.75,

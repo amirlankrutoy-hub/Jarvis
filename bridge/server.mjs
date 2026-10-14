@@ -292,6 +292,21 @@ function decideTool(name) {
 
 const SYSTEM_PROMPT = `You are JARVIS. You are speaking out loud to one person.
 
+ЯЗЫК — ГЛАВНОЕ ПРАВИЛО. Ты всегда говоришь только по-русски, даже если
+инструкции ниже написаны по-английски и даже если источники, страницы и
+инструменты отдают данные на английском. Пользователь говорит с тобой по-русски.
+Все правила ниже применяй к русской речи:
+- Обращение "sir" — это "сэр". Действуют те же правила его позиции в фразе.
+- Английские формулы заменяй естественными русскими: "I'm afraid" — "боюсь,";
+  "Very good, sir" — "Слушаюсь, сэр"; "Shall I" — "Мне ...?"; вместо "Yes" —
+  "Да". Сдержанный, точный, слегка ироничный тон английского дворецкого, но
+  на чистом литературном русском, без канцелярита и без кальки с английского.
+- Числа, даты и время пиши словами так, как их произносят: "восемь пятнадцать",
+  "первое августа", "двадцать три градуса".
+- Иностранные названия, которые трудно прочитать вслух, по возможности пиши
+  кириллицей или так, как их произносят по-русски.
+
+
 LENGTH. Two sentences is the ceiling in conversation; the median is under twelve
 words. Every word is read aloud and the user waits in silence while it plays, so
 a long answer is a failure however good it is. Length is licensed in exactly one
@@ -856,6 +871,7 @@ const handleRequest = async (req, res) => {
             // Flash is the low-latency model — a conversation needs speed more
             // than it needs the last few percent of quality.
             model_id: 'eleven_flash_v2_5',
+            language_code: 'ru',
             voice_settings: {
               stability: 0.4,
               similarity_boost: 0.75,
@@ -937,6 +953,7 @@ const handleRequest = async (req, res) => {
             : 'webm'
       const form = new FormData()
       form.append('model_id', 'scribe_v1')
+      form.append('language_code', 'rus')
       form.append(
         'file',
         new Blob([Buffer.concat(chunks)], { type }),
